@@ -1,0 +1,739 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <style>
+        #child1 {
+          background-color: lightblue;
+          width: 10px;
+          
+        }
+        #child2 {
+          background-color: lightgreen;
+          width: 10px;
+          
+        }
+    
+        @media (min-width: 350px) {
+          #parent {
+            display: flex;
+          }
+          #child1 {
+            flex-grow: 1;
+          }
+          #child2 {
+            flex-grow: 1;
+          }
+        }
+      </style>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+        <script src="https://cdn.jsdelivr.net/npm/@tensorflow/tfjs-core"></script>
+        <script src="https://cdn.jsdelivr.net/npm/@tensorflow/tfjs-converter"></script>
+        <script src="https://cdn.jsdelivr.net/npm/@tensorflow/tfjs-backend-webgl"></script>
+        <script src="https://cdn.jsdelivr.net/npm/@tensorflow-models/pose-detection"></script>
+<script>
+ var a=0;
+ var b=0;
+ var c=0;
+// ビデオ
+var src_video;
+var src_video2;
+// キャンバス
+var src_canvas; 
+var src_ctx;
+var taMessage;
+//ビデオ2
+var src_canvas2; 
+var src_ctx2;
+var taMessage2;
+ 
+// タイマーのID
+var interval_id ; 
+ 
+window.onload = function(){     
+  src_canvas = document.getElementById("SrcCanvas");
+  src_ctx = src_canvas.getContext("2d");    
+  
+  src_video = document.getElementById("SrcVideo");
+  taMessage = document.getElementById("message");
+
+  src_canvas2 = document.getElementById("SrcCanvas2");
+  src_ctx2 = src_canvas2.getContext("2d");    
+  
+  src_video2 = document.getElementById("SrcVideo2");
+  taMessage2 = document.getElementById("message2");
+}
+ 
+// 停止
+function stopMovie(){
+  src_video.loop=false;
+  src_video.pause(); 
+//ビデオ2
+  src_video2.loop=false;
+  src_video2.pause(); 
+  
+}
+//再生
+function saisei(){
+	// ボタンが押されたときに実行されるイベント	
+		src_video.play(); 
+    src_video2.play(); 
+    a=0;
+    b=0;
+	  c=0;
+	};
+    
+// タイマーイベント
+function onNotify(){
+  src_ctx.drawImage(src_video,0,0,src_video.width,src_video.height);
+  src_ctx2.drawImage(src_video2,0,0,src_video2.width,src_video2.height);
+}
+let detect;
+            let detect_flag;
+            let constraint={src_video:{width: 320, height: 240}};
+            let constraint2={src_video2:{width: 320, height: 240}};
+            detect_flag=0;
+            
+            //Load Model  
+            async function load() {
+                  const detector = await poseDetection.createDetector(poseDetection.SupportedModels.MoveNet);
+                  console.log('Detector Loaded');
+                  detect_flag=1;
+                  detect=detector;
+            }  
+            load(); 
+
+// ユーザーによりファイルが追加された  
+function onAddFile(event) {
+  var files;
+  var filename;
+  
+  if(event.target.files){
+    files = event.target.files;
+  }else{ 
+    files = event.dataTransfer.files;   
+  }    
+  
+  if (files[0] != undefined){    
+    filename = files[0].name;
+    
+    // 拡張子の取得 
+    var ext = filename.split('.');
+    ext = ext[ext.length-1].toUpperCase();
+                 
+    // 動画が再生できる状態になった時
+    src_video.onloadeddata = function(){             
+      
+      // 最大横幅を640にする
+      console.log("original0.."+src_video.videoWidth);
+      var size = 320;
+      if(src_video.videoWidth > size){
+        var aspectratio = src_video.videoWidth / size;
+        var another = Math.round(src_video.videoHeight / aspectratio);
+        console.log("original.."+src_video.width);
+        src_video.width  = size;
+        src_video.height = another;  
+      }else{
+        src_video.width  = src_video.videoWidth;
+        src_video.height = src_video.videoHeight;  
+      }
+            
+      src_canvas.width  = src_video.width;
+      src_canvas.height = src_video.height;
+      
+      // タイマー発動(60fps)
+      interval_id = setInterval(Pose,1000 / 60);
+      
+      // 再生      
+      src_video.play();   
+    };
+
+
+
+          async function Pose() {
+                  if(detect_flag==1){
+                  const poses = await detect.estimatePoses(src_video);
+			//poses is json object, i.e 
+			// [
+			//    {x: 230, y: 220, score: 0.9, name: "nose"},
+			//    {x: 212, y: 190, score: 0.8, name: "left_eye"},
+			//    ... 17 key-points
+			// ]
+                
+                 //Animation with Detected Coordinates
+                  src_ctx.drawImage(src_video, 0, 0, src_canvas.width,src_canvas.height);
+                  src_ctx.fillStyle = "#D2691E";
+                  src_ctx.strokeStyle = "#F0F8FF";
+                  src_ctx.beginPath();
+                  var size =320;
+                  console.log("+++"+src_video.videoWidth);
+                  console.log(src_video.width);
+                  var aspectratio = src_video.videoWidth / src_video.width;
+                  for(let i=0; i<17;i++){
+                    poses[0].keypoints[i].x=Math.round(poses[0].keypoints[i].x/aspectratio);
+                    poses[0].keypoints[i].y=Math.round(poses[0].keypoints[i].y/aspectratio);
+                  }
+                  //poses[0].keypoints[0].x=50;
+                  //poses[0].keypoints[0].y=50;
+                  //キーポイントの番号4→2→0→1→3の順にライン引く
+                  //キーポイントの番号と部位
+                    //0：鼻
+                    //1：左目
+                    //2：右目
+                    //3：左耳
+                    //4：右耳
+                    //5：左肩
+                    //6：右肩
+                    //7：左肘
+                    //8：右肘
+                    //9：左手首
+                    //10：右手首
+                    //11：左尻
+                    //12：右尻
+                    //13：左膝
+                    //14：右膝
+                    //15：左足首
+                    //16：右足首
+                    //分からないこと：右耳から左肩に線が引かれているのが謎
+                  src_ctx.moveTo(poses[0].keypoints[4].x,poses[0].keypoints[4].y);
+                  src_ctx.lineTo(poses[0].keypoints[2].x,poses[0].keypoints[2].y);
+                  src_ctx.lineTo(poses[0].keypoints[0].x,poses[0].keypoints[0].y);
+                  src_ctx.lineTo(poses[0].keypoints[1].x,poses[0].keypoints[1].y);
+                  src_ctx.lineTo(poses[0].keypoints[3].x,poses[0].keypoints[3].y);
+                  //src_ctx.lineTo(poses[0].keypoints[1].x,poses[0].keypoints[1].y);
+                  //src_ctx.lineTo(poses[0].keypoints[0].x,poses[0].keypoints[0].y);
+                  src_ctx.moveTo(poses[0].keypoints[5].x,poses[0].keypoints[5].y);
+                  src_ctx.lineTo(poses[0].keypoints[7].x,poses[0].keypoints[7].y);
+                  src_ctx.lineTo(poses[0].keypoints[9].x,poses[0].keypoints[9].y);
+                  src_ctx.lineTo(poses[0].keypoints[7].x,poses[0].keypoints[7].y);
+                  src_ctx.lineTo(poses[0].keypoints[5].x,poses[0].keypoints[5].y);
+                  src_ctx.lineTo(poses[0].keypoints[6].x,poses[0].keypoints[6].y);
+                  src_ctx.lineTo(poses[0].keypoints[8].x,poses[0].keypoints[8].y);
+                  src_ctx.lineTo(poses[0].keypoints[10].x,poses[0].keypoints[10].y);
+                  src_ctx.lineTo(poses[0].keypoints[8].x,poses[0].keypoints[8].y);
+                  src_ctx.lineTo(poses[0].keypoints[6].x,poses[0].keypoints[6].y);
+                  src_ctx.lineTo(poses[0].keypoints[12].x,poses[0].keypoints[12].y);
+                  src_ctx.lineTo(poses[0].keypoints[11].x,poses[0].keypoints[11].y);
+                  src_ctx.lineTo(poses[0].keypoints[5].x,poses[0].keypoints[5].y);
+                  src_ctx.lineTo(poses[0].keypoints[11].x,poses[0].keypoints[11].y);
+                  src_ctx.lineTo(poses[0].keypoints[13].x,poses[0].keypoints[13].y);
+                  src_ctx.lineTo(poses[0].keypoints[15].x,poses[0].keypoints[15].y);
+                  src_ctx.lineTo(poses[0].keypoints[13].x,poses[0].keypoints[13].y);
+                  src_ctx.lineTo(poses[0].keypoints[11].x,poses[0].keypoints[11].y);
+                  src_ctx.lineTo(poses[0].keypoints[12].x,poses[0].keypoints[12].y);
+                  src_ctx.lineTo(poses[0].keypoints[14].x,poses[0].keypoints[16].y);
+                  src_ctx.lineTo(poses[0].keypoints[16].x,poses[0].keypoints[16].y);
+                  //src_ctx.stroke();
+                  
+
+                  var r=src_video.width/64;
+                  var score;
+                  //マーカー表示
+                  src_ctx.lineWidth = 1;
+                  src_ctx.stroke();
+                  src_ctx.beginPath();
+                  src_ctx.arc(poses[0].keypoints[0].x,poses[0].keypoints[0].y,r, 0, 2 * Math.PI);
+                  src_ctx.fill();
+                  src_ctx.stroke();
+                  src_ctx.beginPath();
+                  src_ctx.fillStyle = "#4169e1";
+                  src_ctx.arc(poses[0].keypoints[1].x,poses[0].keypoints[1].y,r, 0, 2 * Math.PI);
+                  src_ctx.fill();
+                  src_ctx.stroke();
+                  src_ctx.beginPath();
+                  src_ctx.fillStyle = "#D2691E";
+                  src_ctx.arc(poses[0].keypoints[2].x,poses[0].keypoints[2].y,r, 0, 2 * Math.PI);
+                  src_ctx.fill();
+                  src_ctx.stroke();
+                  src_ctx.beginPath();
+                  src_ctx.fillStyle = "#4169e1";
+                  src_ctx.arc(poses[0].keypoints[3].x,poses[0].keypoints[3].y,r, 0, 2 * Math.PI);
+                  src_ctx.fill();
+                  src_ctx.stroke();
+                  src_ctx.beginPath();
+                  src_ctx.fillStyle = "#D2691E";
+                  src_ctx.arc(poses[0].keypoints[4].x,poses[0].keypoints[4].y,r, 0, 2 * Math.PI);
+                  src_ctx.fill();
+                  src_ctx.stroke();
+                  src_ctx.beginPath();
+                  src_ctx.fillStyle = "#4169e1";
+                  src_ctx.arc(poses[0].keypoints[5].x,poses[0].keypoints[5].y,r, 0, 2 * Math.PI);
+                  src_ctx.fill();
+                  src_ctx.stroke();
+                  src_ctx.beginPath(); 
+                  src_ctx.fillStyle = "#D2691E";
+                  src_ctx.arc(poses[0].keypoints[6].x,poses[0].keypoints[6].y,r, 0, 2 * Math.PI);
+                  src_ctx.fill();
+                  src_ctx.stroke();
+                  src_ctx.beginPath();
+                  src_ctx.fillStyle = "#4169e1";
+                  src_ctx.arc(poses[0].keypoints[7].x,poses[0].keypoints[7].y,r, 0, 2 * Math.PI);
+                  src_ctx.fill();
+                  src_ctx.stroke();
+                  src_ctx.beginPath();
+                  src_ctx.fillStyle = "#D2691E";
+                  src_ctx.arc(poses[0].keypoints[8].x,poses[0].keypoints[8].y,r, 0, 2 * Math.PI);
+                  src_ctx.fill();
+                  src_ctx.stroke();
+                  src_ctx.beginPath();
+                  src_ctx.fillStyle = "#4169e1";
+                  src_ctx.arc(poses[0].keypoints[9].x,poses[0].keypoints[9].y,r, 0, 2 * Math.PI);
+                  src_ctx.fill();
+                  src_ctx.stroke();
+                  src_ctx.beginPath();
+                  src_ctx.fillStyle = "#D2691E";
+                  src_ctx.arc(poses[0].keypoints[10].x,poses[0].keypoints[10].y,r, 0, 2 * Math.PI);
+                  src_ctx.fill();
+                  src_ctx.stroke();
+                  src_ctx.beginPath();
+                  src_ctx.fillStyle = "#4169e1";
+                  src_ctx.arc(poses[0].keypoints[11].x,poses[0].keypoints[11].y,r, 0, 2 * Math.PI);
+                  src_ctx.fill();
+                  src_ctx.stroke();
+                  src_ctx.fillStyle = "#D2691E";
+                  src_ctx.arc(poses[0].keypoints[12].x,poses[0].keypoints[12].y,r, 0, 2 * Math.PI);
+                  src_ctx.fill();
+                  src_ctx.stroke();
+                  src_ctx.beginPath();
+                  src_ctx.fillStyle = "#4169e1";
+                  src_ctx.arc(poses[0].keypoints[13].x,poses[0].keypoints[13].y,r, 0, 2 * Math.PI);
+                  src_ctx.fill();
+                  src_ctx.stroke();
+                  src_ctx.beginPath();
+                  src_ctx.fillStyle = "#D2691E";
+                  src_ctx.arc(poses[0].keypoints[14].x,poses[0].keypoints[14].y,r, 0, 2 * Math.PI);
+                  src_ctx.fill();
+                  src_ctx.stroke();
+                  src_ctx.beginPath();
+                  src_ctx.fillStyle = "#4169e1";
+                  src_ctx.arc(poses[0].keypoints[15].x,poses[0].keypoints[15].y,r, 0, 2 * Math.PI);
+                  src_ctx.fill();
+                  src_ctx.stroke();
+                  src_ctx.beginPath();
+                  src_ctx.fillStyle = "#D2691E";
+                  src_ctx.arc(poses[0].keypoints[16].x,poses[0].keypoints[16].y,r, 0, 2 * Math.PI);
+                  src_ctx.fill();
+                  src_ctx.stroke();       
+                  
+                  
+                 //if文
+                 var x_bunkatu=src_video.width/4;
+                  var y_bunkatu=src_video.height/4;
+                  var jun=0;
+                  //右手首が肩より高いとき
+                  if((poses[0].keypoints[10].y)<(poses[0].keypoints[6].y) && a==0 && b==0 && c==0){
+                    console.log('〇');
+                    taMessage.value+="開始の姿勢〇\n";
+                    a=a+1;
+                  } 
+                  
+                  //肘と肩のy座標がイコールかつ高さが尻＞肩＞目の時〇〇
+                if((Math.abs((poses[0].keypoints[7].y)-(poses[0].keypoints[5].y))<10)&&
+                 (poses[0].keypoints[5].y>poses[0].keypoints[13].y) && 
+                 (poses[0].keypoints[9].y>poses[0].keypoints[5].y)&&b==0){
+                    console.log('〇〇〇');
+                    console.log((poses[0].keypoints[7].y)-(poses[0].keypoints[5].y));
+                    taMessage.value+="起き上がる姿勢〇\n";
+                    b=b+1;
+                } 
+
+                //尻、肩、手首がマットについてる
+                if((poses[0].keypoints[13].y)>3*y_bunkatu ){
+                    jun=jun+1;
+                }
+                if((poses[0].keypoints[5].y)>3*y_bunkatu&&(jun==1)){
+                    jun=jun+1;
+                }
+
+                if((poses[0].keypoints[9].y)>3*y_bunkatu&&(jun==2)){
+                    jun=jun+1;
+                }
+                if(jun==3 && c==0){
+                    console.log('〇〇');
+                    taMessage.value+="転がる順番〇\n";
+                    c=c+1;
+                }
+                }
+              }
+
+              //アドバイス
+              src_video.addEventListener("ended", function() {
+                if(a==0){
+                  taMessage.value+="開始の姿勢✕\n";
+                    taMessage.value+="両手を肩より上においてください\n";
+                    a=a+1;
+                }
+                if(b==0){
+                  taMessage.value+="起き上がる姿勢✕\n";
+                  taMessage.value+="手のひらを床にスタンプをつくようなイメージでマットへ着き、手に力を入れて起き上がりましょう\n";
+                  b=b+1;
+                }
+
+                if(c==0){
+                  taMessage.value+="転がる順番✕\n";
+                  taMessage.value+="お尻が上がっておらず勢いが足りていないので、体育座りから寝る姿勢を取りお尻を上げてみてください\n";
+                   c=c+1;
+                }
+              });
+               
+                
+            
+           
+
+            
+    
+    src_video.onerror = function(e){
+      alert('このファイルは読み込めません。');
+    };    
+   
+    // 以前のURLオブジェクトを削除する
+    if(src_video.src){
+      src_video.pause();
+      window.URL.revokeObjectURL(src_video.src) ;
+    }
+
+
+
+   
+
+    // MIMEを指定して動画を読み込む
+    var mime = "video/mp4";
+    if(ext == "WEBM"){
+      mime = "video/webm";
+    }else if (ext == "OGG" || ext == "OGX" || ext == "OGV"){
+      mime = "video/ogg";
+    }               
+    src_video.src = URL.createObjectURL(new Blob([files[0]], { type: mime }));
+  }
+  document.getElementById("inputfile").value = '';  
+  document.getElementById("play").value = '';
+  
+
+
+}      
+
+//ビデオ2
+function onAddFile2(event) {
+  var files;
+  var filename;
+  
+  if(event.target.files){
+    files = event.target.files;
+  }else{ 
+    files = event.dataTransfer.files;   
+  }    
+  console.log("========================================-");
+  console.log(src_video2);
+
+  if (files[0] != undefined){    
+    filename = files[0].name;
+    
+    // 拡張子の取得 
+    var ext = filename.split('.');
+    ext = ext[ext.length-1].toUpperCase();
+                 
+    // 動画が再生できる状態になった時
+    src_video2.onloadeddata = function(){             
+      
+      // 最大横幅を640にする
+      var size = 320;
+      if(src_video2.videoWidth > size){
+        var aspectratio = src_video2.videoWidth / size;
+        var another = Math.round(src_video2.videoHeight / aspectratio);
+                
+        src_video2.width  = size;
+        src_video2.height = another;  
+      }else{
+        src_video2.width  = src_video2.videoWidth;
+        src_video2.height = src_video2.videoHeight;;  
+      }
+            
+      src_canvas2.width  = src_video2.width;
+      src_canvas2.height = src_video2.height;
+      
+      // タイマー発動(60fps)
+      interval_id = setInterval(Pose,1000 / 60);
+      
+      // 再生      
+      src_video.play();   
+    };
+
+
+
+          async function Pose() {
+                  if(detect_flag==1){
+                  const poses = await detect.estimatePoses(src_video2);
+			//poses is json object, i.e 
+			// [
+			//    {x: 230, y: 220, score: 0.9, name: "nose"},
+			//    {x: 212, y: 190, score: 0.8, name: "left_eye"},
+			//    ... 17 key-points
+			// ]
+                
+                 //Animation with Detected Coordinates
+                  src_ctx2.drawImage(src_video2, 0, 0, src_canvas2.width,src_canvas2.height);
+                  src_ctx2.fillStyle = "#D2691E";
+                  src_ctx2.strokeStyle = "#F0F8FF";
+                  src_ctx2.beginPath();
+                  var size =320;
+                  var aspectratio = src_video2.videoWidth / src_video2.width;
+                  for(let i=0; i<17;i++){
+                    poses[0].keypoints[i].x=Math.round(poses[0].keypoints[i].x/aspectratio);
+                    poses[0].keypoints[i].y=Math.round(poses[0].keypoints[i].y/aspectratio);
+                  }
+                  //キーポイントの番号4→2→0→1→3の順にライン引く
+                  //キーポイントの番号と部位
+                    //0：鼻
+                    //1：左目
+                    //2：右目
+                    //3：左耳
+                    //4：右耳
+                    //5：左肩
+                    //6：右肩
+                    //7：左肘
+                    //8：右肘
+                    //9：左手首
+                    //10：右手首
+                    //11：左尻
+                    //12：右尻
+                    //13：左膝
+                    //14：右膝
+                    //15：左足首
+                    //16：右足首
+                    //分からないこと：右耳から左肩に線が引かれているのが謎
+                  src_ctx2.moveTo(poses[0].keypoints[4].x,poses[0].keypoints[4].y);
+                  src_ctx2.lineTo(poses[0].keypoints[2].x,poses[0].keypoints[2].y);
+                  src_ctx2.lineTo(poses[0].keypoints[0].x,poses[0].keypoints[0].y);
+                  src_ctx2.lineTo(poses[0].keypoints[1].x,poses[0].keypoints[1].y);
+                  src_ctx2.lineTo(poses[0].keypoints[3].x,poses[0].keypoints[3].y);
+                  //src_ctx.lineTo(poses[0].keypoints[1].x,poses[0].keypoints[1].y);
+                  //src_ctx.lineTo(poses[0].keypoints[0].x,poses[0].keypoints[0].y);
+                  src_ctx2.moveTo(poses[0].keypoints[5].x,poses[0].keypoints[5].y);
+                  src_ctx2.lineTo(poses[0].keypoints[7].x,poses[0].keypoints[7].y);
+                  src_ctx2.lineTo(poses[0].keypoints[9].x,poses[0].keypoints[9].y);
+                  src_ctx2.lineTo(poses[0].keypoints[7].x,poses[0].keypoints[7].y);
+                  src_ctx2.lineTo(poses[0].keypoints[5].x,poses[0].keypoints[5].y);
+                  src_ctx2.lineTo(poses[0].keypoints[6].x,poses[0].keypoints[6].y);
+                  src_ctx2.lineTo(poses[0].keypoints[8].x,poses[0].keypoints[8].y);
+                  src_ctx2.lineTo(poses[0].keypoints[10].x,poses[0].keypoints[10].y);
+                  src_ctx2.lineTo(poses[0].keypoints[8].x,poses[0].keypoints[8].y);
+                  src_ctx2.lineTo(poses[0].keypoints[6].x,poses[0].keypoints[6].y);
+                  src_ctx2.lineTo(poses[0].keypoints[12].x,poses[0].keypoints[12].y);
+                  src_ctx2.lineTo(poses[0].keypoints[11].x,poses[0].keypoints[11].y);
+                  src_ctx2.lineTo(poses[0].keypoints[5].x,poses[0].keypoints[5].y);
+                  src_ctx2.lineTo(poses[0].keypoints[11].x,poses[0].keypoints[11].y);
+                  src_ctx2.lineTo(poses[0].keypoints[13].x,poses[0].keypoints[13].y);
+                  src_ctx2.lineTo(poses[0].keypoints[15].x,poses[0].keypoints[15].y);
+                  src_ctx2.lineTo(poses[0].keypoints[13].x,poses[0].keypoints[13].y);
+                  src_ctx2.lineTo(poses[0].keypoints[11].x,poses[0].keypoints[11].y);
+                  src_ctx2.lineTo(poses[0].keypoints[12].x,poses[0].keypoints[12].y);
+                  src_ctx2.lineTo(poses[0].keypoints[14].x,poses[0].keypoints[16].y);
+                  src_ctx2.lineTo(poses[0].keypoints[16].x,poses[0].keypoints[16].y);
+                  //src_ctx2.stroke();
+                  
+
+                  var r=src_video.width/64;
+                  var score;
+                  //マーカー表示
+                  src_ctx2.lineWidth = 1;
+                  src_ctx2.stroke();
+                  src_ctx2.beginPath();
+                  src_ctx2.arc(poses[0].keypoints[0].x,poses[0].keypoints[0].y,r, 0, 2 * Math.PI);
+                  src_ctx2.fill();
+                  src_ctx2.stroke();
+                  src_ctx2.beginPath();
+                  src_ctx2.fillStyle = "#4169e1";
+                  src_ctx2.arc(poses[0].keypoints[1].x,poses[0].keypoints[1].y,r, 0, 2 * Math.PI);
+                  src_ctx2.fill();
+                  src_ctx2.stroke();
+                  src_ctx2.beginPath();
+                  src_ctx2.fillStyle = "#D2691E";
+                  src_ctx2.arc(poses[0].keypoints[2].x,poses[0].keypoints[2].y,r, 0, 2 * Math.PI);
+                  src_ctx2.fill();
+                  src_ctx2.stroke();
+                  src_ctx2.beginPath();
+                  src_ctx2.fillStyle = "#4169e1";
+                  src_ctx2.arc(poses[0].keypoints[3].x,poses[0].keypoints[3].y,r, 0, 2 * Math.PI);
+                  src_ctx2.fill();
+                  src_ctx2.stroke();
+                  src_ctx2.beginPath();
+                  src_ctx2.fillStyle = "#D2691E";
+                  src_ctx2.arc(poses[0].keypoints[4].x,poses[0].keypoints[4].y,r, 0, 2 * Math.PI);
+                  src_ctx2.fill();
+                  src_ctx2.stroke();
+                  src_ctx2.beginPath();
+                  src_ctx2.fillStyle = "#4169e1";
+                  src_ctx2.arc(poses[0].keypoints[5].x,poses[0].keypoints[5].y,r, 0, 2 * Math.PI);
+                  src_ctx2.fill();
+                  src_ctx2.stroke();
+                  src_ctx2.beginPath(); 
+                  src_ctx2.fillStyle = "#D2691E";
+                  src_ctx2.arc(poses[0].keypoints[6].x,poses[0].keypoints[6].y,r, 0, 2 * Math.PI);
+                  src_ctx2.fill();
+                  src_ctx2.stroke();
+                  src_ctx2.beginPath();
+                  src_ctx2.fillStyle = "#4169e1";
+                  src_ctx2.arc(poses[0].keypoints[7].x,poses[0].keypoints[7].y,r, 0, 2 * Math.PI);
+                  src_ctx2.fill();
+                  src_ctx2.stroke();
+                  src_ctx2.beginPath();
+                  src_ctx2.fillStyle = "#D2691E";
+                  src_ctx2.arc(poses[0].keypoints[8].x,poses[0].keypoints[8].y,r, 0, 2 * Math.PI);
+                  src_ctx2.fill();
+                  src_ctx2.stroke();
+                  src_ctx2.beginPath();
+                  src_ctx2.fillStyle = "#4169e1";
+                  src_ctx2.arc(poses[0].keypoints[9].x,poses[0].keypoints[9].y,r, 0, 2 * Math.PI);
+                  src_ctx2.fill();
+                  src_ctx2.stroke();
+                  src_ctx2.beginPath();
+                  src_ctx2.fillStyle = "#D2691E";
+                  src_ctx2.arc(poses[0].keypoints[10].x,poses[0].keypoints[10].y,r, 0, 2 * Math.PI);
+                  src_ctx2.fill();
+                  src_ctx2.stroke();
+                  src_ctx2.beginPath();
+                  src_ctx2.fillStyle = "#4169e1";
+                  src_ctx2.arc(poses[0].keypoints[11].x,poses[0].keypoints[11].y,r, 0, 2 * Math.PI);
+                  src_ctx2.fill();
+                  src_ctx2.stroke();
+                  src_ctx2.fillStyle = "#D2691E";
+                  src_ctx2.arc(poses[0].keypoints[12].x,poses[0].keypoints[12].y,r, 0, 2 * Math.PI);
+                  src_ctx2.fill();
+                  src_ctx2.stroke();
+                  src_ctx2.beginPath();
+                  src_ctx2.fillStyle = "#4169e1";
+                  src_ctx2.arc(poses[0].keypoints[13].x,poses[0].keypoints[13].y,r, 0, 2 * Math.PI);
+                  src_ctx2.fill();
+                  src_ctx2.stroke();
+                  src_ctx2.beginPath();
+                  src_ctx2.fillStyle = "#D2691E";
+                  src_ctx2.arc(poses[0].keypoints[14].x,poses[0].keypoints[14].y,r, 0, 2 * Math.PI);
+                  src_ctx2.fill();
+                  src_ctx2.stroke();
+                  src_ctx2.beginPath();
+                  src_ctx2.fillStyle = "#4169e1";
+                  src_ctx2.arc(poses[0].keypoints[15].x,poses[0].keypoints[15].y,r, 0, 2 * Math.PI);
+                  src_ctx2.fill();
+                  src_ctx2.stroke();
+                  src_ctx2.beginPath();
+                  src_ctx2.fillStyle = "#D2691E";
+                  src_ctx2.arc(poses[0].keypoints[16].x,poses[0].keypoints[16].y,r, 0, 2 * Math.PI);
+                  src_ctx2.fill();
+                  src_ctx2.stroke();       
+                  
+                  
+                 //if文
+                 var x_bunkatu=src_video2.width/4;
+                  var y_bunkatu=src_video2.height/4;
+                  //まっすぐ転がる評価
+                  if((poses[0].keypoints[0].x)>2*x_bunkatu && (poses[0].keypoints[0].x)<3*x_bunkatu && a==0){
+                    console.log('〇');
+                    taMessage2.value+="まっすぐ転がれています\n";
+                    a=a+1;
+                  }       
+                   
+                  }
+            }
+           
+            //アドバイス
+            src_video2.addEventListener("ended", function() {
+              if(a==0){
+                taMessage2.value+="まっすぐ転がれていません\n";
+                    a=a+1;
+              }
+            });
+
+
+            
+    src_video2.onerror = function(e){
+      alert('このファイルは読み込めません。');
+    };    
+   
+    // 以前のURLオブジェクトを削除する
+    if(src_video2.src){
+      src_video2.pause();
+      window.URL.revokeObjectURL(src_video2.src) ;
+    }
+
+
+
+   
+
+    // MIMEを指定して動画を読み込む
+    var mime = "video/mp4";
+    if(ext == "WEBM"){
+      mime = "video/webm";
+    }else if (ext == "OGG" || ext == "OGX" || ext == "OGV"){
+      mime = "video/ogg";
+    }               
+    src_video2.src = URL.createObjectURL(new Blob([files[0]], { type: mime }));
+  }
+  document2.getElementById("inputfile2").value = '';  
+  document2.getElementById("play").value = '';
+  
+
+
+}      
+
+
+</script>
+</head>
+<body> 
+<h4>後転</h4>
+<p></p>
+<p><button onclick="saisei(); ">再生</button></p>
+<p><button onclick="stopMovie(); ">停止</button></p>
+
+
+<div id="parent">
+    <div id="child1">横
+      <p></p>
+        <input type="file" id="inputfile" accept="video/mp4,video/webm,video/ogg" onchange="onAddFile(event);"> 
+        <h4>videoタグで再生</h4>       
+        <video id="SrcVideo"></video>
+         <h4>canvasで再生</h4> 
+        <canvas id="SrcCanvas"></canvas>
+        <div class></div>
+        <div id="info" style="position: relative;height: 35%;">
+            <div id="status" class="status" style="width: 30%;">評価</div>
+            <textarea id="message" class="message" style="left: 30%;width: 90%;height: 20%"></textarea>
+        </div>
+    </div>
+
+
+    <div id="child2">正面
+      <p></p>
+        <input type="file" id="inputfile2" accept="video/mp4,video/webm,video/ogg" onchange="onAddFile2(event);">   
+        <h4>videoタグで再生</h4>     
+        <video id="SrcVideo2"></video>
+        <h4>canvasで再生</h4> 
+        <canvas id="SrcCanvas2"></canvas>
+        <div id="info" style="position: relative;height: 35%;">
+            <div id="status" class="status" style="width: 30%;">評価</div>
+            <textarea id="message2" class="message2" style="left: 30%;width: 90%;height: 20%"></textarea>
+        </div>
+    
+    </div>
+  </div>
+
+
+<!--<h4>videoタグで再生</h4>        
+<video id="SrcVideo"></video>
+<h4>canvasで再生</h4> 
+<canvas id="SrcCanvas"></canvas>
+<div id="info" style="position: relative;height: 35%;">
+    <div id="status" class="status" style="width: 30%;">評価</div>
+    
+    <textarea id="message" class="message" style="left: 30%;width: 40%"></textarea>
+   -->
+    <div id ="bg_pattern Rectangles" style="position: fixed; top:0; left:0; width: 100vw;
+    height: 100vh;
+    background-color: #ffe9a7;
+    opacity: 0.4;
+    z-index: -1;background-image:  repeating-linear-gradient(45deg, #ffc107 25%, transparent 25%, transparent 75%, #ffc107 75%, #ffc107), repeating-linear-gradient(45deg, #ffc107 25%, #ffe9a7 25%, #ffe9a7 75%, #ffc107 75%, #ffc107);
+      background-position: 0 0, 20px 20px;
+      background-size: 40px 40px;"></div>
+  </div>
+<p></p>
+</body>
+</html> 
